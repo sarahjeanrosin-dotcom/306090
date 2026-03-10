@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <!-- Outer ring -->
+  <circle cx="20" cy="20" r="18" stroke="#2C3E8F" stroke-width="1.5"/>
+  <!-- Compass needle: north (teal, pointed up) -->
+  <path d="M20 5 L23.5 20 L20 17.5 L16.5 20 Z" fill="#2BB7A8"/>
+  <!-- Compass needle: south (indigo, faded) -->
+  <path d="M20 35 L16.5 20 L20 22.5 L23.5 20 Z" fill="#2C3E8F" opacity="0.28"/>
+  <!-- Center pivot -->
+  <circle cx="20" cy="20" r="1.75" fill="#2C3E8F"/>
+</svg>

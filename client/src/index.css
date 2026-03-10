@@ -1,11 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Brand CSS variables ───────────────────────────────────────────── */
+:root {
+  --color-indigo:  #2C3E8F;
+  --color-teal:    #2BB7A8;
+  --color-coral:   #FF6B57;
+  --color-cloud:   #F6F8FB;
+  --color-slate:   #3A3F45;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-[#F6F8FB] text-[#3A3F45] antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
+
+  h1 { @apply text-2xl font-bold tracking-tight; }
+  h2 { @apply text-xl font-semibold; }
+  h3 { @apply text-base font-semibold; }
 }
 
 @layer components {
@@ -13,27 +29,67 @@
     @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500;
+    @apply btn bg-[#2C3E8F] text-white hover:bg-[#1e2d6b] focus:ring-[#2C3E8F];
   }
   .btn-secondary {
-    @apply btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-blue-500;
+    @apply btn bg-white text-[#3A3F45] border border-gray-300 hover:bg-gray-50 focus:ring-[#2C3E8F];
   }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+    @apply btn bg-[#FF6B57] text-white hover:bg-[#e5543f] focus:ring-[#FF6B57];
   }
   .btn-ghost {
-    @apply btn text-gray-600 hover:bg-gray-100 focus:ring-gray-300;
+    @apply btn text-[#3A3F45] hover:bg-gray-100 focus:ring-gray-300;
   }
   .card {
     @apply bg-white rounded-xl border border-gray-200 shadow-sm;
   }
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2C3E8F] focus:border-transparent;
   }
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium text-[#3A3F45] mb-1;
   }
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+}
+
+/* ── Print / PDF export styles ─────────────────────────────────────── */
+@media print {
+  aside,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .max-w-7xl {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .pdf-header {
+    display: flex !important;
+  }
+
+  body {
+    background: white !important;
+    color: #3A3F45 !important;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 11pt;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 0.75in;
+    size: letter portrait;
   }
 }
