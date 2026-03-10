@@ -89,7 +89,7 @@ function GoalList() {
         </div>
       )}
 
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editing ? 'Edit Goal' : 'New 90-Day Goal'} size="lg">
+      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editing ? 'Edit Goal' : 'New Goal'} size="lg">
         <GoalForm
           goal={editing}
           topics={topics}
@@ -420,6 +420,7 @@ function MilestoneInlineForm({ type, goalId, onSuccess, onCancel }: { type: numb
 }
 
 function GoalForm({ goal, topics, onSuccess }: { goal: Goal | null; topics: Topic[]; onSuccess: () => void }) {
+  const [goalDays, setGoalDays] = useState<30 | 60 | 90 | null>(null);
   const [form, setForm] = useState({
     title: goal?.title || '',
     description: goal?.description || '',
@@ -430,6 +431,15 @@ function GoalForm({ goal, topics, onSuccess }: { goal: Goal | null; topics: Topi
     status: goal?.status || 'active',
   });
   const [saving, setSaving] = useState(false);
+
+  function selectDays(days: 30 | 60 | 90) {
+    setGoalDays(days);
+    if (form.start_date) {
+      const end = new Date(form.start_date);
+      end.setDate(end.getDate() + days);
+      setForm(f => ({ ...f, target_end_date: end.toISOString().split('T')[0] }));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -445,6 +455,30 @@ function GoalForm({ goal, topics, onSuccess }: { goal: Goal | null; topics: Topi
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {!goal && (
+        <div>
+          <label className="label">Goal Duration</label>
+          <div className="flex gap-2">
+            {([30, 60, 90] as const).map(days => (
+              <button
+                key={days}
+                type="button"
+                onClick={() => selectDays(days)}
+                className={cn(
+                  'flex-1 py-2 rounded-lg border text-sm font-medium transition-colors',
+                  goalDays === days
+                    ? days === 30 ? 'bg-blue-600 border-blue-600 text-white'
+                      : days === 60 ? 'bg-purple-600 border-purple-600 text-white'
+                      : 'bg-green-600 border-green-600 text-white'
+                    : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                )}
+              >
+                {days}-Day
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div>
         <label className="label">Goal Title *</label>
         <input className="input" required placeholder="e.g., Master the product codebase" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
