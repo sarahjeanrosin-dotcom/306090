@@ -71,7 +71,7 @@ export default function Tasks() {
         <div className="flex gap-2 flex-wrap">
           {['', 'todo', 'in_progress', 'blocked', 'completed'].map(s => (
             <button key={s} onClick={() => setSearchParams(s ? { status: s } : {})}
-              className={cn('badge cursor-pointer', statusFilter === s ? 'bg-blue-600 text-white' : statusColor(s || 'all') || 'bg-gray-100 text-gray-600')}>
+              className={cn('badge cursor-pointer', statusFilter === s ? 'bg-[#2C3E8F] text-white' : statusColor(s || 'all') || 'bg-gray-100 text-gray-600')}>
               {s ? statusLabel(s) : 'All'}
             </button>
           ))}
@@ -80,7 +80,7 @@ export default function Tasks() {
         <div className="flex gap-2 flex-wrap">
           {[['', 'All Days'], ['30', '30-Day'], ['60', '60-Day'], ['90', '90-Day'], ['none', 'No Milestone']].map(([v, l]) => (
             <button key={v} onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); v ? p.set('milestone', v) : p.delete('milestone'); return p; })}
-              className={cn('badge cursor-pointer', milestoneFilter === v ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>
+              className={cn('badge cursor-pointer', milestoneFilter === v ? 'bg-[#2C3E8F] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>
               {l}
             </button>
           ))}
@@ -111,7 +111,7 @@ export default function Tasks() {
                 <input
                   type="checkbox"
                   checked={task.status === 'completed'}
-                  className="w-4 h-4 mt-0.5 text-blue-600 rounded border-gray-300 flex-shrink-0"
+                  className="w-4 h-4 mt-0.5 text-[#2C3E8F] rounded border-gray-300 flex-shrink-0"
                   onChange={() => updateMutation.mutate({
                     id: task.id,
                     data: { ...task, status: task.status === 'completed' ? 'todo' : 'completed', percent_complete: task.status === 'completed' ? task.percent_complete : 100 }

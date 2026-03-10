@@ -22,7 +22,7 @@ export default function WeeklyUpdatePage() {
       <div className="flex gap-2 border-b border-gray-200">
         {(['generate', 'history'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-[#2C3E8F] text-[#2C3E8F]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {tab === 'generate' ? '✨ Generate Update' : `📋 History (${updates.length})`}
           </button>
         ))}
@@ -118,7 +118,7 @@ function GenerateUpdate({ onSave }: { onSave: () => void }) {
       {/* Week picker */}
       <div className="card p-5">
         <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <Calendar size={18} className="text-blue-600" /> Select Week
+          <Calendar size={18} className="text-[#2C3E8F]" /> Select Week
         </h3>
         <div className="flex items-center gap-3">
           <div>
@@ -141,7 +141,7 @@ function GenerateUpdate({ onSave }: { onSave: () => void }) {
       {/* Streaming preview */}
       {generating && streaming && (
         <div className="card p-5">
-          <div className="text-sm font-medium text-blue-600 mb-2 flex items-center gap-2">
+          <div className="text-sm font-medium text-[#2C3E8F] mb-2 flex items-center gap-2">
             <span className="animate-pulse">●</span> AI is drafting your update...
           </div>
           <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">{streaming}</pre>

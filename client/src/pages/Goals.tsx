@@ -61,7 +61,7 @@ function GoalList() {
                     )}
                     <span className={`badge ${statusColor(goal.status)}`}>{statusLabel(goal.status)}</span>
                   </div>
-                  <Link to={`/goals/${goal.id}`} className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                  <Link to={`/goals/${goal.id}`} className="text-lg font-semibold text-gray-900 hover:text-[#2C3E8F] transition-colors">
                     {goal.title}
                   </Link>
                   {goal.description && <p className="text-sm text-gray-500 mt-1 line-clamp-2">{goal.description}</p>}
@@ -116,7 +116,7 @@ function GoalDetail({ id }: { id: string }) {
     onSuccess: () => navigate('/goals'),
   });
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" /></div>;
+  if (isLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#2C3E8F]" /></div>;
   if (!goal) return <div>Goal not found</div>;
 
   async function generateMilestones() {
@@ -211,11 +211,11 @@ function GoalDetail({ id }: { id: string }) {
 
       {/* AI Generate button */}
       {(goal.milestones?.length === 0) && (
-        <div className="card p-6 border-dashed border-2 border-blue-200 bg-blue-50/30">
+        <div className="card p-6 border-dashed border-2 border-[#2C3E8F]/20 bg-[#2C3E8F]/5">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <Sparkles size={18} className="text-blue-600" /> AI Milestone Generator
+                <Sparkles size={18} className="text-[#2C3E8F]" /> AI Milestone Generator
               </h3>
               <p className="text-sm text-gray-600 mt-1">Let AI break this goal into 30/60/90-day milestones and tasks</p>
             </div>
@@ -225,8 +225,8 @@ function GoalDetail({ id }: { id: string }) {
           </div>
 
           {aiLoading && aiStreaming && (
-            <div className="mt-4 p-4 bg-white rounded-lg border border-blue-100 text-xs text-gray-600 font-mono max-h-40 overflow-y-auto">
-              <div className="text-blue-600 font-medium mb-1">AI is thinking...</div>
+            <div className="mt-4 p-4 bg-white rounded-lg border border-[#2C3E8F]/10 text-xs text-gray-600 font-mono max-h-40 overflow-y-auto">
+              <div className="text-[#2C3E8F] font-medium mb-1">AI is thinking...</div>
               {aiStreaming}
             </div>
           )}
@@ -237,7 +237,7 @@ function GoalDetail({ id }: { id: string }) {
               {aiResult.milestones.map(m => (
                 <div key={m.type} className="bg-white rounded-lg border border-gray-200 p-4">
                   <div className="font-semibold text-gray-900 flex items-center gap-2">
-                    <span className="badge bg-blue-100 text-blue-700">{m.type}-Day</span> {m.title}
+                    <span className="badge bg-[#2C3E8F]/10 text-[#2C3E8F]">{m.type}-Day</span> {m.title}
                   </div>
                   <p className="text-sm text-gray-600 mt-1">{m.description}</p>
                   <div className="mt-3 space-y-1">
@@ -298,12 +298,12 @@ function MilestoneSection({ type, milestones, tasks, goalId, onUpdate }: {
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const colors = { 30: 'blue', 60: 'purple', 90: 'green' } as const;
-  const colorMap = { blue: 'bg-blue-50 border-blue-200', purple: 'bg-purple-50 border-purple-200', green: 'bg-green-50 border-green-200' };
-  const badgeMap = { blue: 'bg-blue-100 text-blue-700', purple: 'bg-purple-100 text-purple-700', green: 'bg-green-100 text-green-700' };
+  const colorMap = { blue: 'bg-[#2C3E8F]/5 border-[#2C3E8F]/20', purple: 'bg-purple-50 border-purple-200', green: 'bg-green-50 border-green-200' };
+  const badgeMap = { blue: 'bg-[#2C3E8F]/10 text-[#2C3E8F]', purple: 'bg-purple-100 text-purple-700', green: 'bg-green-100 text-green-700' };
   const c = colors[type];
 
   return (
-    <div className={`card p-6 border-l-4 ${c === 'blue' ? 'border-l-blue-500' : c === 'purple' ? 'border-l-purple-500' : 'border-l-green-500'}`}>
+    <div className={`card p-6 border-l-4 ${c === 'blue' ? 'border-l-[#2C3E8F]' : c === 'purple' ? 'border-l-purple-500' : 'border-l-green-500'}`}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-900 flex items-center gap-2">
           <span className={`badge ${badgeMap[c]}`}>{type}-Day</span>
@@ -378,7 +378,7 @@ function TaskList({ tasks, onUpdate }: { tasks: NonNullable<Goal['tasks']>; onUp
           <input
             type="checkbox"
             checked={t.status === 'completed'}
-            className="w-4 h-4 text-blue-600 rounded border-gray-300"
+            className="w-4 h-4 text-[#2C3E8F] rounded border-gray-300"
             onChange={async () => {
               const newStatus = t.status === 'completed' ? 'todo' : 'completed';
               await updateTask(t.id, { ...t, status: newStatus, percent_complete: newStatus === 'completed' ? 100 : t.percent_complete });
@@ -467,7 +467,7 @@ function GoalForm({ goal, topics, onSuccess }: { goal: Goal | null; topics: Topi
                 className={cn(
                   'flex-1 py-2 rounded-lg border text-sm font-medium transition-colors',
                   goalDays === days
-                    ? days === 30 ? 'bg-blue-600 border-blue-600 text-white'
+                    ? days === 30 ? 'bg-[#2C3E8F] border-[#2C3E8F] text-white'
                       : days === 60 ? 'bg-purple-600 border-purple-600 text-white'
                       : 'bg-green-600 border-green-600 text-white'
                     : 'border-gray-300 text-gray-600 hover:border-gray-400'

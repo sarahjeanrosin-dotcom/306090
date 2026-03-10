@@ -11,7 +11,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#2C3E8F]" />
       </div>
     );
   }
@@ -38,10 +38,10 @@ export default function Dashboard() {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <TrendingUp size={20} className="text-blue-600" />
+            <TrendingUp size={20} className="text-[#2C3E8F]" />
             Overall 90-Day Progress
           </h2>
-          <span className="text-3xl font-bold text-blue-600">{Math.round(d.overallProgress)}%</span>
+          <span className="text-3xl font-bold text-[#2C3E8F]">{Math.round(d.overallProgress)}%</span>
         </div>
         <ProgressBar value={d.overallProgress} size="lg" showLabel={false} />
         <div className="mt-3 text-sm text-gray-500">
@@ -53,7 +53,7 @@ export default function Dashboard() {
         {/* Milestone progress */}
         <div className="card p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Award size={18} className="text-blue-600" />
+            <Award size={18} className="text-[#2C3E8F]" />
             Progress by Milestone
           </h2>
           {[30, 60, 90].map(type => {
@@ -100,7 +100,7 @@ export default function Dashboard() {
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-900">Active Goals</h2>
-            <Link to="/goals" className="text-sm text-blue-600 hover:underline">View all</Link>
+            <Link to="/goals" className="text-sm text-[#2C3E8F] hover:underline">View all</Link>
           </div>
           {d.goals.length === 0 ? (
             <div className="text-center py-8">
@@ -111,10 +111,10 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-3">
               {d.goals.slice(0, 5).map(g => (
-                <Link key={g.id} to={`/goals/${g.id}`} className="block p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-colors">
+                <Link key={g.id} to={`/goals/${g.id}`} className="block p-3 rounded-lg border border-gray-100 hover:border-[#2C3E8F]/20 hover:bg-[#2C3E8F]/5 transition-colors">
                   <div className="flex justify-between items-start mb-1">
                     <span className="text-sm font-medium text-gray-800">{g.title}</span>
-                    <span className="text-xs font-semibold text-blue-600 ml-2">{Math.round(g.avg_progress || 0)}%</span>
+                    <span className="text-xs font-semibold text-[#2C3E8F] ml-2">{Math.round(g.avg_progress || 0)}%</span>
                   </div>
                   {g.topic_name && (
                     <span className="badge" style={{ backgroundColor: g.topic_color + '20', color: g.topic_color }}>
@@ -135,7 +135,7 @@ export default function Dashboard() {
               <AlertTriangle size={18} className="text-red-500" />
               Blockers & Risks
             </h2>
-            <Link to="/tasks?status=blocked" className="text-sm text-blue-600 hover:underline">View all</Link>
+            <Link to="/tasks?status=blocked" className="text-sm text-[#2C3E8F] hover:underline">View all</Link>
           </div>
           {d.blockers.length === 0 ? (
             <p className="text-sm text-green-600 flex items-center gap-2">
@@ -160,7 +160,7 @@ export default function Dashboard() {
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-900">Recently Completed</h2>
-            <Link to="/tasks?status=completed" className="text-sm text-blue-600 hover:underline">View all</Link>
+            <Link to="/tasks?status=completed" className="text-sm text-[#2C3E8F] hover:underline">View all</Link>
           </div>
           {d.recentCompletedTasks.length === 0 ? (
             <p className="text-sm text-gray-400">No completed tasks yet. Get to work!</p>
@@ -183,7 +183,7 @@ export default function Dashboard() {
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-900">Recent Deliverables</h2>
-            <Link to="/deliverables" className="text-sm text-blue-600 hover:underline">View all</Link>
+            <Link to="/deliverables" className="text-sm text-[#2C3E8F] hover:underline">View all</Link>
           </div>
           {d.recentDeliverables.length === 0 ? (
             <div className="text-center py-6">
@@ -212,7 +212,7 @@ export default function Dashboard() {
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
   const colors: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-600',
+    blue: 'bg-[#2C3E8F]/10 text-[#2C3E8F]',
     green: 'bg-green-50 text-green-600',
     purple: 'bg-purple-50 text-purple-600',
     red: 'bg-red-50 text-red-600',

@@ -28,12 +28,12 @@ export function getCurrentWeek() {
 export function statusColor(status: string) {
   switch (status) {
     case 'completed': return 'bg-green-100 text-green-800';
-    case 'in_progress': return 'bg-blue-100 text-blue-800';
+    case 'in_progress': return 'bg-[#2C3E8F]/10 text-[#2C3E8F]';
     case 'blocked': return 'bg-red-100 text-red-800';
     case 'todo': return 'bg-gray-100 text-gray-700';
     case 'not_started': return 'bg-gray-100 text-gray-700';
     case 'paused': return 'bg-yellow-100 text-yellow-800';
-    case 'active': return 'bg-blue-100 text-blue-800';
+    case 'active': return 'bg-[#2C3E8F]/10 text-[#2C3E8F]';
     default: return 'bg-gray-100 text-gray-700';
   }
 }
@@ -47,10 +47,10 @@ export function milestoneLabel(type: number) {
 }
 
 export function progressColor(pct: number) {
-  if (pct >= 80) return 'bg-green-500';
-  if (pct >= 50) return 'bg-blue-500';
-  if (pct >= 25) return 'bg-yellow-500';
-  return 'bg-red-400';
+  if (pct >= 80) return 'bg-[#FF6B57]'; // coral — milestone win
+  if (pct >= 50) return 'bg-[#2BB7A8]'; // teal — good progress
+  if (pct >= 25) return 'bg-[#2C3E8F]'; // indigo — in motion
+  return 'bg-gray-300';
 }
 
 export function fileSize(bytes: number) {

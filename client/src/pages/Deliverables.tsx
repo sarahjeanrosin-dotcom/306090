@@ -57,7 +57,7 @@ export default function Deliverables() {
           <option value="">All Goals</option>
           {goals.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
         </select>
-        {filterGoal && <button className="text-sm text-blue-600 hover:underline" onClick={() => setFilterGoal('')}>Clear</button>}
+        {filterGoal && <button className="text-sm text-[#2C3E8F] hover:underline" onClick={() => setFilterGoal('')}>Clear</button>}
         <span className="text-sm text-gray-400 ml-auto">{deliverables.length} item{deliverables.length !== 1 ? 's' : ''}</span>
       </div>
 
@@ -104,7 +104,7 @@ export default function Deliverables() {
                     <span className="text-xs text-gray-400">{formatDate(d.upload_date)}</span>
                     {d.file_size && <span className="text-xs text-gray-400">· {fileSize(d.file_size)}</span>}
                     {d.include_in_updates === 1 && (
-                      <span className="badge bg-blue-50 text-blue-600 text-xs">In Updates</span>
+                      <span className="badge bg-[#2C3E8F]/10 text-[#2C3E8F] text-xs">In Updates</span>
                     )}
                     {d.goals?.map(g => (
                       <span key={g.id} className="badge bg-purple-50 text-purple-700 text-xs">{g.title}</span>
@@ -119,7 +119,7 @@ export default function Deliverables() {
                     </div>
                   )}
                   {d.type === 'link' && d.url && (
-                    <div className="mt-1 text-xs text-blue-600 truncate">{d.url}</div>
+                    <div className="mt-1 text-xs text-[#2C3E8F] truncate">{d.url}</div>
                   )}
                 </div>
               </div>
@@ -174,7 +174,7 @@ function UploadForm({ goals, tasks, topics, onSuccess }: {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div
-        className={cn('border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors', dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400')}
+        className={cn('border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors', dragOver ? 'border-[#2C3E8F]/40 bg-[#2C3E8F]/5' : 'border-gray-300 hover:border-gray-400')}
         onClick={() => fileRef.current?.click()}
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
