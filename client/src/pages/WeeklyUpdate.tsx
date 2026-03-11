@@ -1,9 +1,46 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, Copy, Check, Trash2, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { Sparkles, Copy, Check, Trash2, ChevronDown, ChevronUp, Calendar, Download } from 'lucide-react';
 import { getUpdates, createUpdate, updateUpdate, deleteUpdate, getWeekContext } from '../lib/api';
 import type { WeeklyUpdate, AIWeeklyUpdate } from '../types';
 import { formatDate, getCurrentWeek, copyToClipboard } from '../lib/utils';
+import jsPDF from 'jspdf';
+
+function downloadUpdateAsPDF(content: string, weekStart: string, weekEnd: string) {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const margin = 60;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const usableWidth = pageWidth - margin * 2;
+  const lineHeight = 14;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text('Weekly Progress Update', margin, margin);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(120, 120, 120);
+  doc.text(`Week of ${weekStart} – ${weekEnd}`, margin, margin + 22);
+
+  doc.setDrawColor(200, 200, 200);
+  doc.line(margin, margin + 34, pageWidth - margin, margin + 34);
+
+  doc.setTextColor(40, 40, 40);
+  doc.setFontSize(11);
+  let y = margin + 54;
+
+  const lines = doc.splitTextToSize(content, usableWidth);
+  for (const line of lines) {
+    if (y > doc.internal.pageSize.getHeight() - margin) {
+      doc.addPage();
+      y = margin;
+    }
+    doc.text(line, margin, y);
+    y += lineHeight;
+  }
+
+  doc.save(`weekly-update-${weekStart}.pdf`);
+}
 
 export default function WeeklyUpdatePage() {
   const qc = useQueryClient();
@@ -56,11 +93,13 @@ function GenerateUpdate({ onSave }: { onSave: () => void }) {
   const [edited, setEdited] = useState('');
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function generate() {
     setGenerating(true);
     setStreaming('');
     setResult(null);
+    setError(null);
     try {
       const ctx = await getWeekContext(weekStart, weekEnd);
       const resp = await fetch('/api/ai/summarize-week', {
@@ -69,12 +108,18 @@ function GenerateUpdate({ onSave }: { onSave: () => void }) {
         body: JSON.stringify({ weekStart, weekEnd, ...ctx }),
       });
       const json = await resp.json();
+      if (!resp.ok || json.error) {
+        setError(json.error || `Server error (${resp.status})`);
+        return;
+      }
       if (json.type === 'complete' && json.data) {
         setResult(json.data);
         setEdited(json.data.full_email || '');
+      } else {
+        setError('Unexpected response from AI. Please try again.');
       }
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : 'Failed to generate update. Please try again.');
     } finally {
       setGenerating(false);
     }
@@ -127,6 +172,14 @@ function GenerateUpdate({ onSave }: { onSave: () => void }) {
         </div>
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className="card p-4 border border-red-200 bg-red-50">
+          <p className="text-sm text-red-700 font-medium">Generation failed</p>
+          <p className="text-sm text-red-600 mt-1">{error}</p>
+        </div>
+      )}
+
       {/* Streaming preview */}
       {generating && streaming && (
         <div className="card p-5">
@@ -154,6 +207,9 @@ function GenerateUpdate({ onSave }: { onSave: () => void }) {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-900">Full Email Draft</h3>
               <div className="flex gap-2">
+                <button className="btn-secondary text-sm" onClick={() => downloadUpdateAsPDF(edited || result?.full_email || '', weekStart, weekEnd)}>
+                  <Download size={15} /> PDF
+                </button>
                 <button className="btn-secondary text-sm" onClick={handleCopy}>
                   {copied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy</>}
                 </button>
@@ -216,6 +272,9 @@ function UpdateCard({ update, onDelete, onUpdate }: { update: WeeklyUpdate; onDe
           <div className="text-xs text-gray-400 mt-0.5">Generated {formatDate(update.generated_at, 'MMM d, yyyy h:mm a')}</div>
         </div>
         <div className="flex gap-2">
+          <button className="btn-ghost p-2 text-sm" title="Download PDF" onClick={() => downloadUpdateAsPDF(displayContent, update.week_start, update.week_end)}>
+            <Download size={16} />
+          </button>
           <button className="btn-ghost p-2 text-sm" onClick={async () => { await copyToClipboard(displayContent); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
             {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
           </button>
