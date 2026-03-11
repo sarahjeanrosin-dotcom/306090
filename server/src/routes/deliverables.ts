@@ -232,7 +232,7 @@ async function linkRelated(
   const tIds = parseIds(taskIds);
   const tpIds = parseIds(topicIds);
 
-  const ops: Promise<unknown>[] = [];
+  const ops: PromiseLike<unknown>[] = [];
   if (gIds.length) ops.push(supabase.from('deliverable_goals').upsert(gIds.map(id => ({ deliverable_id: deliverableId, goal_id: id }))));
   if (tIds.length) ops.push(supabase.from('deliverable_tasks').upsert(tIds.map(id => ({ deliverable_id: deliverableId, task_id: id }))));
   if (tpIds.length) ops.push(supabase.from('deliverable_topics').upsert(tpIds.map(id => ({ deliverable_id: deliverableId, topic_id: id }))));
