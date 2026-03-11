@@ -5,41 +5,16 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export const aiRouter = Router();
 
-async function streamWithThinking(prompt: string, maxTokens = 4096) {
-  // Use adaptive thinking via type cast since older SDK typings may not include it
-  return (client.messages as unknown as {
-    stream: (p: Record<string, unknown>) => AsyncIterable<Record<string, unknown>>;
-  }).stream({
-    model: 'claude-opus-4-6',
+async function callClaude(prompt: string, maxTokens = 4096): Promise<string> {
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: maxTokens,
-    thinking: { type: 'adaptive' },
     messages: [{ role: 'user', content: prompt }],
   });
-}
-
-function writeSSE(res: import('express').Response, data: unknown) {
-  res.write(`data: ${JSON.stringify(data)}\n\n`);
-}
-
-function setSSEHeaders(res: import('express').Response) {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-}
-
-async function collectStream(stream: AsyncIterable<Record<string, unknown>>, res: import('express').Response) {
-  let fullText = '';
-  for await (const event of stream) {
-    if (event['type'] === 'content_block_delta') {
-      const delta = event['delta'] as Record<string, unknown>;
-      if (delta['type'] === 'text_delta') {
-        const text = String(delta['text'] || '');
-        fullText += text;
-        writeSSE(res, { type: 'text', text });
-      }
-    }
-  }
-  return fullText;
+  return response.content
+    .filter(block => block.type === 'text')
+    .map(block => (block as { type: 'text'; text: string }).text)
+    .join('');
 }
 
 // Convert a goal into milestones and tasks
@@ -86,23 +61,14 @@ Generate a structured 30/60/90 day plan. Return ONLY valid JSON in this exact fo
 
 Generate 3-5 concrete, actionable tasks per milestone (9-15 total). Focus on practical steps a new employee can take.`;
 
-  setSSEHeaders(res);
   try {
-    const stream = await streamWithThinking(prompt);
-    const fullText = await collectStream(stream, res);
-
+    const fullText = await callClaude(prompt);
     const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        writeSSE(res, { type: 'complete', data: JSON.parse(jsonMatch[0]) });
-      } catch {
-        writeSSE(res, { type: 'error', error: 'Failed to parse AI response' });
-      }
-    }
+    if (!jsonMatch) return res.status(500).json({ error: 'No JSON in AI response' });
+    res.json({ type: 'complete', data: JSON.parse(jsonMatch[0]) });
   } catch (error) {
-    writeSSE(res, { type: 'error', error: error instanceof Error ? error.message : 'AI request failed' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AI request failed' });
   }
-  res.end();
 });
 
 // Summarize weekly progress
@@ -138,23 +104,14 @@ Write a professional, concise Friday progress email update. Return ONLY valid JS
   "full_email": "Complete formatted email text ready to copy and send"
 }`;
 
-  setSSEHeaders(res);
   try {
-    const stream = await streamWithThinking(prompt);
-    const fullText = await collectStream(stream, res);
-
+    const fullText = await callClaude(prompt);
     const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        writeSSE(res, { type: 'complete', data: JSON.parse(jsonMatch[0]) });
-      } catch {
-        writeSSE(res, { type: 'error', error: 'Failed to parse AI response' });
-      }
-    }
+    if (!jsonMatch) return res.status(500).json({ error: 'No JSON in AI response' });
+    res.json({ type: 'complete', data: JSON.parse(jsonMatch[0]) });
   } catch (error) {
-    writeSSE(res, { type: 'error', error: error instanceof Error ? error.message : 'AI request failed' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AI request failed' });
   }
-  res.end();
 });
 
 // Generate a shareable summary
@@ -171,24 +128,10 @@ ${deliverables?.map((d: Record<string, unknown>) => `- ${d.title}: ${d.descripti
 
 Write a concise, professional summary (2-3 paragraphs) suitable for sharing with stakeholders. Highlight progress, key outputs, and momentum. Return just the plain text summary.`;
 
-  setSSEHeaders(res);
   try {
-    const stream = client.messages.stream({
-      model: 'claude-opus-4-6',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    let fullText = '';
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullText += event.delta.text;
-        writeSSE(res, { type: 'text', text: event.delta.text });
-      }
-    }
-    writeSSE(res, { type: 'complete', data: { summary: fullText } });
+    const summary = await callClaude(prompt, 1024);
+    res.json({ type: 'complete', data: { summary } });
   } catch (error) {
-    writeSSE(res, { type: 'error', error: error instanceof Error ? error.message : 'AI request failed' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AI request failed' });
   }
-  res.end();
 });

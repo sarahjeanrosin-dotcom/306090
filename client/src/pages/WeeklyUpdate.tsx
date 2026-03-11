@@ -68,21 +68,10 @@ function GenerateUpdate({ onSave }: { onSave: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ weekStart, weekEnd, ...ctx }),
       });
-
-      const reader = resp.body!.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        for (const line of chunk.split('\n').filter(l => l.startsWith('data: '))) {
-          const evt = JSON.parse(line.slice(6));
-          if (evt.type === 'text') setStreaming(p => p + evt.text);
-          if (evt.type === 'complete' && evt.data) {
-            setResult(evt.data);
-            setEdited(evt.data.full_email || '');
-          }
-        }
+      const json = await resp.json();
+      if (json.type === 'complete' && json.data) {
+        setResult(json.data);
+        setEdited(json.data.full_email || '');
       }
     } catch (e) {
       console.error(e);

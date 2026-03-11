@@ -129,19 +129,8 @@ function GoalDetail({ id }: { id: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal: { ...goal!, topic_name: goal!.topic_name } }),
       });
-      const reader = resp.body!.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
-        for (const line of lines) {
-          const evt = JSON.parse(line.slice(6));
-          if (evt.type === 'text') setAiStreaming(prev => prev + evt.text);
-          if (evt.type === 'complete') setAiResult(evt.data);
-        }
-      }
+      const json = await resp.json();
+      if (json.type === 'complete') setAiResult(json.data);
     } catch (e) {
       console.error(e);
     } finally {

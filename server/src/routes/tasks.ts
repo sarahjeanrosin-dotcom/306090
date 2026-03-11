@@ -1,67 +1,111 @@
 import { Router } from 'express';
-import { db } from '../db';
+import { supabase } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 
 export const tasksRouter = Router();
 
-tasksRouter.get('/', (req, res) => {
+tasksRouter.get('/', async (req, res) => {
   const { goal_id, milestone_id, status } = req.query;
-  let query = `
-    SELECT t.*,
-      g.title as goal_title,
-      m.title as milestone_title,
-      m.type as milestone_type
-    FROM tasks t
-    LEFT JOIN goals g ON g.id = t.goal_id
-    LEFT JOIN milestones m ON m.id = t.milestone_id
-    WHERE 1=1
-  `;
-  const params: string[] = [];
-  if (goal_id) { query += ' AND t.goal_id = ?'; params.push(goal_id as string); }
-  if (milestone_id) { query += ' AND t.milestone_id = ?'; params.push(milestone_id as string); }
-  if (status) { query += ' AND t.status = ?'; params.push(status as string); }
-  query += ' ORDER BY t.updated_at DESC';
-  res.json(db.prepare(query).all(...params));
+
+  let query = supabase
+    .from('tasks')
+    .select('*, goals(title), milestones(title, type)')
+    .order('updated_at', { ascending: false });
+
+  if (goal_id) query = query.eq('goal_id', goal_id as string);
+  if (milestone_id) query = query.eq('milestone_id', milestone_id as string);
+  if (status) query = query.eq('status', status as string);
+
+  const { data: tasks, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+
+  const result = (tasks || []).map(t => ({
+    ...t,
+    goal_title: (t.goals as Record<string, unknown> | null)?.title ?? null,
+    goals: undefined,
+    milestone_title: (t.milestones as Record<string, unknown> | null)?.title ?? null,
+    milestone_type: (t.milestones as Record<string, unknown> | null)?.type ?? null,
+    milestones: undefined,
+  }));
+  res.json(result);
 });
 
-tasksRouter.get('/blockers', (req, res) => {
-  const tasks = db.prepare(`
-    SELECT t.*, g.title as goal_title, m.title as milestone_title, m.type as milestone_type
-    FROM tasks t
-    LEFT JOIN goals g ON g.id = t.goal_id
-    LEFT JOIN milestones m ON m.id = t.milestone_id
-    WHERE t.status = 'blocked' OR (t.blockers IS NOT NULL AND t.blockers != '')
-    ORDER BY t.updated_at DESC
-  `).all();
-  res.json(tasks);
+tasksRouter.get('/blockers', async (req, res) => {
+  const { data: tasks, error } = await supabase
+    .from('tasks')
+    .select('*, goals(title), milestones(title, type)')
+    .or('status.eq.blocked,and(blockers.not.is.null,blockers.neq.)')
+    .order('updated_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+
+  const result = (tasks || []).map(t => ({
+    ...t,
+    goal_title: (t.goals as Record<string, unknown> | null)?.title ?? null,
+    goals: undefined,
+    milestone_title: (t.milestones as Record<string, unknown> | null)?.title ?? null,
+    milestone_type: (t.milestones as Record<string, unknown> | null)?.type ?? null,
+    milestones: undefined,
+  }));
+  res.json(result);
 });
 
-tasksRouter.post('/', (req, res) => {
+tasksRouter.post('/', async (req, res) => {
   const { goal_id, milestone_id, title, description, status, percent_complete, notes, blockers, due_date } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
   const id = uuidv4();
-  db.prepare(`
-    INSERT INTO tasks (id, goal_id, milestone_id, title, description, status, percent_complete, notes, blockers, due_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, goal_id || null, milestone_id || null, title, description || null,
-    status || 'todo', percent_complete || 0, notes || null, blockers || null, due_date || null);
-  res.status(201).json(db.prepare('SELECT * FROM tasks WHERE id = ?').get(id));
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({
+      id,
+      goal_id: goal_id || null,
+      milestone_id: milestone_id || null,
+      title,
+      description: description || null,
+      status: status || 'todo',
+      percent_complete: percent_complete || 0,
+      notes: notes || null,
+      blockers: blockers || null,
+      due_date: due_date || null,
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-tasksRouter.put('/:id', (req, res) => {
+tasksRouter.put('/:id', async (req, res) => {
   const { goal_id, milestone_id, title, description, status, percent_complete, notes, blockers, due_date } = req.body;
-  const completed_at = status === 'completed' ? "datetime('now')" : 'NULL';
-  db.prepare(`
-    UPDATE tasks SET goal_id=?, milestone_id=?, title=?, description=?, status=?,
-      percent_complete=?, notes=?, blockers=?, due_date=?,
-      completed_at = CASE WHEN ? = 'completed' THEN datetime('now') ELSE completed_at END,
-      updated_at=datetime('now')
-    WHERE id=?
-  `).run(goal_id, milestone_id, title, description, status, percent_complete, notes, blockers, due_date, status, req.params.id);
-  res.json(db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id));
+
+  // Fetch current task to decide completed_at
+  const { data: current } = await supabase.from('tasks').select('status, completed_at').eq('id', req.params.id).single();
+  const completed_at = status === 'completed'
+    ? (current?.completed_at || new Date().toISOString())
+    : null;
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({
+      goal_id,
+      milestone_id,
+      title,
+      description,
+      status,
+      percent_complete,
+      notes,
+      blockers,
+      due_date,
+      completed_at,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-tasksRouter.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
+tasksRouter.delete('/:id', async (req, res) => {
+  const { error } = await supabase.from('tasks').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
   res.status(204).send();
 });

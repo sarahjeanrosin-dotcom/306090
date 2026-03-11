@@ -1,79 +1,132 @@
 import { Router } from 'express';
-import { db } from '../db';
+import { supabase } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 
 export const updatesRouter = Router();
 
-updatesRouter.get('/', (req, res) => {
-  const updates = db.prepare('SELECT * FROM weekly_updates ORDER BY week_start DESC').all();
-  res.json(updates);
+updatesRouter.get('/', async (req, res) => {
+  const { data, error } = await supabase
+    .from('weekly_updates')
+    .select('*')
+    .order('week_start', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-updatesRouter.get('/:id', (req, res) => {
-  const update = db.prepare('SELECT * FROM weekly_updates WHERE id = ?').get(req.params.id);
-  if (!update) return res.status(404).json({ error: 'Not found' });
-  res.json(update);
+updatesRouter.get('/:id', async (req, res) => {
+  const { data, error } = await supabase
+    .from('weekly_updates')
+    .select('*')
+    .eq('id', req.params.id)
+    .single();
+  if (error || !data) return res.status(404).json({ error: 'Not found' });
+  res.json(data);
 });
 
-updatesRouter.post('/', (req, res) => {
+updatesRouter.post('/', async (req, res) => {
   const { week_start, week_end, content, edited_content } = req.body;
   if (!week_start || !week_end || !content) {
     return res.status(400).json({ error: 'week_start, week_end, content required' });
   }
   const id = uuidv4();
-  db.prepare(`INSERT INTO weekly_updates (id, week_start, week_end, content, edited_content) VALUES (?, ?, ?, ?, ?)`)
-    .run(id, week_start, week_end, content, edited_content || null);
-  res.status(201).json(db.prepare('SELECT * FROM weekly_updates WHERE id = ?').get(id));
+  const { data, error } = await supabase
+    .from('weekly_updates')
+    .insert({ id, week_start, week_end, content, edited_content: edited_content || null })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-updatesRouter.put('/:id', (req, res) => {
+updatesRouter.put('/:id', async (req, res) => {
   const { edited_content, content } = req.body;
-  db.prepare(`UPDATE weekly_updates SET edited_content=?, content=?, updated_at=datetime('now') WHERE id=?`)
-    .run(edited_content, content, req.params.id);
-  res.json(db.prepare('SELECT * FROM weekly_updates WHERE id = ?').get(req.params.id));
+  const { data, error } = await supabase
+    .from('weekly_updates')
+    .update({ edited_content, content, updated_at: new Date().toISOString() })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-updatesRouter.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM weekly_updates WHERE id = ?').run(req.params.id);
+updatesRouter.delete('/:id', async (req, res) => {
+  const { error } = await supabase.from('weekly_updates').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
   res.status(204).send();
 });
 
 // Get context data for a given week range
-updatesRouter.get('/context/:weekStart/:weekEnd', (req, res) => {
+updatesRouter.get('/context/:weekStart/:weekEnd', async (req, res) => {
   const { weekStart, weekEnd } = req.params;
+  const weekEndFull = weekEnd + 'T23:59:59';
 
-  const completedTasks = db.prepare(`
-    SELECT t.*, g.title as goal_title, m.title as milestone_title, m.type as milestone_type
-    FROM tasks t
-    LEFT JOIN goals g ON g.id = t.goal_id
-    LEFT JOIN milestones m ON m.id = t.milestone_id
-    WHERE t.completed_at BETWEEN ? AND ?
-    ORDER BY t.completed_at DESC
-  `).all(weekStart, weekEnd + 'T23:59:59');
+  const [
+    { data: completedTasksRaw },
+    { data: deliverablesRaw },
+    { data: blockersRaw },
+    { data: goalsRaw },
+  ] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select('*, goals(title), milestones(title, type)')
+      .gte('completed_at', weekStart)
+      .lte('completed_at', weekEndFull)
+      .order('completed_at', { ascending: false }),
+    supabase
+      .from('deliverables')
+      .select('*')
+      .gte('upload_date', weekStart)
+      .lte('upload_date', weekEndFull)
+      .eq('include_in_updates', true)
+      .order('upload_date', { ascending: false }),
+    supabase
+      .from('tasks')
+      .select('*, goals(title)')
+      .or('status.eq.blocked,and(blockers.not.is.null,blockers.neq.)')
+      .neq('status', 'completed'),
+    supabase
+      .from('goals')
+      .select('*, topics(name)')
+      .eq('status', 'active')
+      .order('created_at'),
+  ]);
 
-  const deliverables = db.prepare(`
-    SELECT d.* FROM deliverables d
-    WHERE d.upload_date BETWEEN ? AND ? AND d.include_in_updates = 1
-    ORDER BY d.upload_date DESC
-  `).all(weekStart, weekEnd + 'T23:59:59');
+  const completedTasks = (completedTasksRaw || []).map(t => ({
+    ...t,
+    goal_title: (t.goals as Record<string, unknown> | null)?.title ?? null,
+    goals: undefined,
+    milestone_title: (t.milestones as Record<string, unknown> | null)?.title ?? null,
+    milestone_type: (t.milestones as Record<string, unknown> | null)?.type ?? null,
+    milestones: undefined,
+  }));
 
-  const blockers = db.prepare(`
-    SELECT t.*, g.title as goal_title FROM tasks t
-    LEFT JOIN goals g ON g.id = t.goal_id
-    WHERE (t.status = 'blocked' OR (t.blockers IS NOT NULL AND t.blockers != ''))
-    AND t.status != 'completed'
-  `).all();
+  const blockers = (blockersRaw || []).map(t => ({
+    ...t,
+    goal_title: (t.goals as Record<string, unknown> | null)?.title ?? null,
+    goals: undefined,
+  }));
 
-  const goals = db.prepare(`
-    SELECT g.*, t.name as topic_name,
-      COALESCE((SELECT AVG(percent_complete) FROM tasks WHERE goal_id = g.id), 0) as avg_progress,
-      (SELECT COUNT(*) FROM tasks WHERE goal_id = g.id) as task_count,
-      (SELECT COUNT(*) FROM tasks WHERE goal_id = g.id AND status = 'completed') as completed_tasks
-    FROM goals g
-    LEFT JOIN topics t ON t.id = g.topic_id
-    WHERE g.status = 'active'
-    ORDER BY g.created_at
-  `).all();
+  // Fetch task stats for goals
+  const goalIds = (goalsRaw || []).map(g => g.id);
+  const { data: goalTasks } = goalIds.length
+    ? await supabase.from('tasks').select('goal_id, status, percent_complete').in('goal_id', goalIds)
+    : { data: [] };
 
-  res.json({ completedTasks, deliverables, blockers, goals });
+  const goals = (goalsRaw || []).map(g => {
+    const gTasks = (goalTasks || []).filter(t => t.goal_id === g.id);
+    const avgProgress = gTasks.length > 0
+      ? gTasks.reduce((s, t) => s + t.percent_complete, 0) / gTasks.length
+      : 0;
+    return {
+      ...g,
+      topic_name: (g.topics as Record<string, unknown> | null)?.name ?? null,
+      topics: undefined,
+      avg_progress: avgProgress,
+      task_count: gTasks.length,
+      completed_tasks: gTasks.filter(t => t.status === 'completed').length,
+    };
+  });
+
+  res.json({ completedTasks, deliverables: deliverablesRaw || [], blockers, goals });
 });

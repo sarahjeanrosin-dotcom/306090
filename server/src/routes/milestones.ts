@@ -1,44 +1,75 @@
 import { Router } from 'express';
-import { db } from '../db';
+import { supabase } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 
 export const milestonesRouter = Router();
 
-milestonesRouter.get('/', (req, res) => {
+milestonesRouter.get('/', async (req, res) => {
   const { goal_id, type } = req.query;
-  let query = `
-    SELECT m.*, g.title as goal_title, g.start_date,
-      (SELECT COUNT(*) FROM tasks WHERE milestone_id = m.id) as task_count,
-      (SELECT COUNT(*) FROM tasks WHERE milestone_id = m.id AND status = 'completed') as completed_task_count,
-      COALESCE((SELECT AVG(percent_complete) FROM tasks WHERE milestone_id = m.id), 0) as avg_progress
-    FROM milestones m
-    JOIN goals g ON g.id = m.goal_id
-    WHERE 1=1
-  `;
-  const params: (string | number)[] = [];
-  if (goal_id) { query += ' AND m.goal_id = ?'; params.push(goal_id as string); }
-  if (type) { query += ' AND m.type = ?'; params.push(Number(type)); }
-  query += ' ORDER BY m.type, m.created_at';
-  res.json(db.prepare(query).all(...params));
+
+  let query = supabase
+    .from('milestones')
+    .select('*, goals(title, start_date)')
+    .order('type')
+    .order('created_at');
+
+  if (goal_id) query = query.eq('goal_id', goal_id as string);
+  if (type) query = query.eq('type', Number(type));
+
+  const { data: milestones, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+
+  const ids = (milestones || []).map(m => m.id);
+  const { data: tasks } = ids.length
+    ? await supabase.from('tasks').select('milestone_id, status, percent_complete').in('milestone_id', ids)
+    : { data: [] };
+
+  const result = (milestones || []).map(m => {
+    const mTasks = (tasks || []).filter(t => t.milestone_id === m.id);
+    const avgProgress = mTasks.length > 0
+      ? mTasks.reduce((s, t) => s + t.percent_complete, 0) / mTasks.length
+      : 0;
+    const goals = m.goals as Record<string, unknown> | null;
+    return {
+      ...m,
+      goal_title: goals?.title ?? null,
+      start_date: goals?.start_date ?? null,
+      goals: undefined,
+      task_count: mTasks.length,
+      completed_task_count: mTasks.filter(t => t.status === 'completed').length,
+      avg_progress: avgProgress,
+    };
+  });
+  res.json(result);
 });
 
-milestonesRouter.post('/', (req, res) => {
+milestonesRouter.post('/', async (req, res) => {
   const { goal_id, type, title, description, target_date } = req.body;
   if (!goal_id || !type || !title) return res.status(400).json({ error: 'goal_id, type, title required' });
   const id = uuidv4();
-  db.prepare(`INSERT INTO milestones (id, goal_id, type, title, description, target_date) VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(id, goal_id, type, title, description || null, target_date || null);
-  res.status(201).json(db.prepare('SELECT * FROM milestones WHERE id = ?').get(id));
+  const { data, error } = await supabase
+    .from('milestones')
+    .insert({ id, goal_id, type, title, description: description || null, target_date: target_date || null })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-milestonesRouter.put('/:id', (req, res) => {
+milestonesRouter.put('/:id', async (req, res) => {
   const { title, description, target_date, status } = req.body;
-  db.prepare(`UPDATE milestones SET title=?, description=?, target_date=?, status=?, updated_at=datetime('now') WHERE id=?`)
-    .run(title, description, target_date, status, req.params.id);
-  res.json(db.prepare('SELECT * FROM milestones WHERE id = ?').get(req.params.id));
+  const { data, error } = await supabase
+    .from('milestones')
+    .update({ title, description, target_date, status, updated_at: new Date().toISOString() })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-milestonesRouter.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM milestones WHERE id = ?').run(req.params.id);
+milestonesRouter.delete('/:id', async (req, res) => {
+  const { error } = await supabase.from('milestones').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
   res.status(204).send();
 });

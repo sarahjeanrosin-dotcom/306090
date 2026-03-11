@@ -1,73 +1,129 @@
 import { Router } from 'express';
-import { db } from '../db';
+import { supabase } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 
 export const goalsRouter = Router();
 
-goalsRouter.get('/', (req, res) => {
-  const goals = db.prepare(`
-    SELECT g.*, t.name as topic_name, t.color as topic_color,
-      (SELECT COUNT(*) FROM milestones WHERE goal_id = g.id) as milestone_count,
-      (SELECT COUNT(*) FROM tasks WHERE goal_id = g.id) as task_count,
-      (SELECT COUNT(*) FROM tasks WHERE goal_id = g.id AND status = 'completed') as completed_task_count,
-      COALESCE((SELECT AVG(percent_complete) FROM tasks WHERE goal_id = g.id), 0) as avg_progress
-    FROM goals g
-    LEFT JOIN topics t ON t.id = g.topic_id
-    ORDER BY g.created_at DESC
-  `).all();
-  res.json(goals);
+goalsRouter.get('/', async (req, res) => {
+  const { data: goals, error } = await supabase
+    .from('goals')
+    .select('*, topics(name, color)')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+
+  const ids = (goals || []).map(g => g.id);
+  const { data: tasks } = await supabase.from('tasks').select('goal_id, status, percent_complete').in('goal_id', ids);
+  const { data: milestones } = await supabase.from('milestones').select('goal_id').in('goal_id', ids);
+
+  const result = (goals || []).map(g => {
+    const gTasks = (tasks || []).filter(t => t.goal_id === g.id);
+    const gMilestones = (milestones || []).filter(m => m.goal_id === g.id);
+    const avgProgress = gTasks.length > 0
+      ? gTasks.reduce((s, t) => s + t.percent_complete, 0) / gTasks.length
+      : 0;
+    return {
+      ...g,
+      topic_name: g.topics?.name ?? null,
+      topic_color: g.topics?.color ?? null,
+      topics: undefined,
+      milestone_count: gMilestones.length,
+      task_count: gTasks.length,
+      completed_task_count: gTasks.filter(t => t.status === 'completed').length,
+      avg_progress: avgProgress,
+    };
+  });
+  res.json(result);
 });
 
-goalsRouter.get('/:id', (req, res) => {
-  const goal = db.prepare(`
-    SELECT g.*, t.name as topic_name, t.color as topic_color
-    FROM goals g LEFT JOIN topics t ON t.id = g.topic_id
-    WHERE g.id = ?
-  `).get(req.params.id);
-  if (!goal) return res.status(404).json({ error: 'Not found' });
+goalsRouter.get('/:id', async (req, res) => {
+  const { data: goal, error } = await supabase
+    .from('goals')
+    .select('*, topics(name, color)')
+    .eq('id', req.params.id)
+    .single();
+  if (error || !goal) return res.status(404).json({ error: 'Not found' });
 
-  const milestones = db.prepare(`
-    SELECT m.*,
-      (SELECT COUNT(*) FROM tasks WHERE milestone_id = m.id) as task_count,
-      (SELECT COUNT(*) FROM tasks WHERE milestone_id = m.id AND status = 'completed') as completed_task_count,
-      COALESCE((SELECT AVG(percent_complete) FROM tasks WHERE milestone_id = m.id), 0) as avg_progress
-    FROM milestones m WHERE m.goal_id = ? ORDER BY m.type
-  `).all(req.params.id);
+  const [{ data: milestoneRows }, { data: taskRows }] = await Promise.all([
+    supabase.from('milestones').select('*').eq('goal_id', req.params.id).order('type'),
+    supabase.from('tasks').select('*, milestones(type, title)').eq('goal_id', req.params.id).order('created_at', { ascending: false }),
+  ]);
 
-  const tasks = db.prepare(`
-    SELECT t.*, m.type as milestone_type, m.title as milestone_title
-    FROM tasks t
-    LEFT JOIN milestones m ON m.id = t.milestone_id
-    WHERE t.goal_id = ?
-    ORDER BY t.created_at DESC
-  `).all(req.params.id);
+  const allTasks = taskRows || [];
 
-  res.json({ ...goal as object, milestones, tasks });
+  const milestones = (milestoneRows || []).map(m => {
+    const mTasks = allTasks.filter(t => t.milestone_id === m.id);
+    const avgProgress = mTasks.length > 0
+      ? mTasks.reduce((s, t) => s + t.percent_complete, 0) / mTasks.length
+      : 0;
+    return {
+      ...m,
+      task_count: mTasks.length,
+      completed_task_count: mTasks.filter(t => t.status === 'completed').length,
+      avg_progress: avgProgress,
+    };
+  });
+
+  const tasks = allTasks.map(t => ({
+    ...t,
+    milestone_type: t.milestones?.type ?? null,
+    milestone_title: t.milestones?.title ?? null,
+    milestones: undefined,
+  }));
+
+  res.json({
+    ...goal,
+    topic_name: goal.topics?.name ?? null,
+    topic_color: goal.topics?.color ?? null,
+    topics: undefined,
+    milestones,
+    tasks,
+  });
 });
 
-goalsRouter.post('/', (req, res) => {
+goalsRouter.post('/', async (req, res) => {
   const { title, description, topic_id, success_criteria, start_date, target_end_date } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
   const id = uuidv4();
-  db.prepare(`
-    INSERT INTO goals (id, title, description, topic_id, success_criteria, start_date, target_end_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, title, description || null, topic_id || null, success_criteria || null,
-    start_date || new Date().toISOString().split('T')[0], target_end_date || null);
-  res.status(201).json(db.prepare('SELECT * FROM goals WHERE id = ?').get(id));
+  const { data, error } = await supabase
+    .from('goals')
+    .insert({
+      id,
+      title,
+      description: description || null,
+      topic_id: topic_id || null,
+      success_criteria: success_criteria || null,
+      start_date: start_date || new Date().toISOString().split('T')[0],
+      target_end_date: target_end_date || null,
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-goalsRouter.put('/:id', (req, res) => {
+goalsRouter.put('/:id', async (req, res) => {
   const { title, description, topic_id, success_criteria, start_date, target_end_date, status } = req.body;
-  db.prepare(`
-    UPDATE goals SET title = ?, description = ?, topic_id = ?, success_criteria = ?,
-      start_date = ?, target_end_date = ?, status = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `).run(title, description, topic_id, success_criteria, start_date, target_end_date, status, req.params.id);
-  res.json(db.prepare('SELECT * FROM goals WHERE id = ?').get(req.params.id));
+  const { data, error } = await supabase
+    .from('goals')
+    .update({
+      title,
+      description,
+      topic_id,
+      success_criteria,
+      start_date,
+      target_end_date,
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-goalsRouter.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM goals WHERE id = ?').run(req.params.id);
+goalsRouter.delete('/:id', async (req, res) => {
+  const { error } = await supabase.from('goals').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
   res.status(204).send();
 });
