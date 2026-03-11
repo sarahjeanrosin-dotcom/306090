@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import PasswordGate from './components/PasswordGate';
 import Dashboard from './pages/Dashboard';
 import Goals from './pages/Goals';
 import Tasks from './pages/Tasks';
@@ -8,6 +9,7 @@ import WeeklyUpdate from './pages/WeeklyUpdate';
 
 export default function App() {
   return (
+    <PasswordGate>
     <BrowserRouter>
       <Layout>
         <Routes>
@@ -20,5 +22,6 @@ export default function App() {
         </Routes>
       </Layout>
     </BrowserRouter>
+    </PasswordGate>
   );
 }
