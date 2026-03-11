@@ -34,10 +34,39 @@ export const deleteTask = (id: string) => api.delete(`/tasks/${id}`);
 export const getDeliverables = (params?: { goal_id?: string; include_in_updates?: boolean }) =>
   api.get<Deliverable[]>('/deliverables', { params }).then(r => r.data);
 export const getDeliverable = (id: string) => api.get<Deliverable>(`/deliverables/${id}`).then(r => r.data);
-export const uploadDeliverable = (formData: FormData) =>
-  api.post<Deliverable>('/deliverables/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+export const uploadDeliverable = async (formData: FormData): Promise<Deliverable> => {
+  const file = formData.get('file') as File;
+  if (!file) throw new Error('No file provided');
+
+  // Step 1: get a signed upload URL from the backend
+  const { data: { signedUrl, filePath } } = await api.post<{ signedUrl: string; filePath: string }>(
+    '/deliverables/request-upload',
+    { fileName: file.name, mimeType: file.type }
+  );
+
+  // Step 2: upload the file directly to Supabase Storage (bypasses Netlify function size limits)
+  const uploadRes = await fetch(signedUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  });
+  if (!uploadRes.ok) throw new Error(`Storage upload failed: ${uploadRes.statusText}`);
+
+  // Step 3: save metadata via backend
+  return api.post<Deliverable>('/deliverables/from-storage', {
+    filePath,
+    fileName: file.name,
+    fileSize: file.size,
+    mimeType: file.type,
+    title: formData.get('title') as string,
+    description: formData.get('description') as string,
+    goal_ids: JSON.parse((formData.get('goal_ids') as string) || '[]'),
+    task_ids: JSON.parse((formData.get('task_ids') as string) || '[]'),
+    topic_ids: JSON.parse((formData.get('topic_ids') as string) || '[]'),
+    mark_tasks_complete: formData.get('mark_tasks_complete') === 'true',
+    include_in_updates: formData.get('include_in_updates') !== 'false',
   }).then(r => r.data);
+};
 export const createLinkDeliverable = (data: Record<string, unknown>) =>
   api.post<Deliverable>('/deliverables/link', data).then(r => r.data);
 export const updateDeliverable = (id: string, data: Partial<Deliverable>) =>

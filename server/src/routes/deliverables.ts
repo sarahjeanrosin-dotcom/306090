@@ -58,7 +58,54 @@ deliverablesRouter.get('/:id', async (req, res) => {
   res.json(enriched[0]);
 });
 
-// File upload
+// Request a signed URL so the client can upload directly to Supabase Storage
+deliverablesRouter.post('/request-upload', async (req, res) => {
+  const { fileName, mimeType } = req.body;
+  if (!fileName) return res.status(400).json({ error: 'fileName is required' });
+
+  const ext = path.extname(fileName);
+  const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+
+  const { data, error } = await supabase.storage
+    .from('deliverables')
+    .createSignedUploadUrl(uniqueName);
+
+  if (error || !data) return res.status(500).json({ error: error?.message || 'Failed to create signed URL' });
+
+  res.json({ signedUrl: data.signedUrl, filePath: uniqueName });
+});
+
+// Save metadata after client has uploaded file directly to Supabase Storage
+deliverablesRouter.post('/from-storage', async (req, res) => {
+  const { title, description, filePath, fileName, fileSize, mimeType, goal_ids, task_ids, topic_ids, mark_tasks_complete, include_in_updates } = req.body;
+  if (!filePath) return res.status(400).json({ error: 'filePath is required' });
+
+  const { data: { publicUrl } } = supabase.storage.from('deliverables').getPublicUrl(filePath);
+
+  const id = uuidv4();
+  const { data, error } = await supabase
+    .from('deliverables')
+    .insert({
+      id,
+      title: title || fileName || filePath,
+      description: description || null,
+      type: 'file',
+      file_path: publicUrl,
+      file_name: fileName || filePath,
+      file_size: fileSize || null,
+      mime_type: mimeType || null,
+      include_in_updates: include_in_updates === false || include_in_updates === 'false' ? false : true,
+    })
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  await linkRelated(id, goal_ids, task_ids, topic_ids, mark_tasks_complete);
+  res.status(201).json(data);
+});
+
+// File upload (local dev fallback)
 deliverablesRouter.post('/upload', upload.single('file'), async (req: Request, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'No file provided' });
