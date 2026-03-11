@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Target, CheckSquare, Paperclip, FileText } from 'lucide-react';
+import { LayoutDashboard, Target, CheckSquare, Paperclip, FileText, Settings } from 'lucide-react';
 import { cn, getCurrentWeek, formatDate } from '../lib/utils';
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/tasks', label: 'Tasks', icon: CheckSquare },
   { to: '/deliverables', label: 'Deliverables', icon: Paperclip },
   { to: '/updates', label: 'Weekly Update', icon: FileText },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const week = getCurrentWeek();

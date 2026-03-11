@@ -6,6 +6,7 @@ import Goals from './pages/Goals';
 import Tasks from './pages/Tasks';
 import Deliverables from './pages/Deliverables';
 import WeeklyUpdate from './pages/WeeklyUpdate';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/deliverables" element={<Deliverables />} />
           <Route path="/updates" element={<WeeklyUpdate />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>
     </BrowserRouter>
